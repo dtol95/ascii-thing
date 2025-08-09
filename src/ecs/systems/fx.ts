@@ -13,6 +13,18 @@ export class FXSystem extends System {
     super(world, events);
     this.setupEventListeners();
   }
+  
+  private isNearVisible(x: number, y: number): boolean {
+    // Check if position is near the player's view (within 12 tiles)
+    const player = this.world.getEntitiesWithComponents('Player', 'Position')[0];
+    if (!player) return true; // If no player, spawn particles (shouldn't happen)
+    
+    const playerPos = this.world.getComponent<Position>(player, 'Position');
+    if (!playerPos) return true;
+    
+    const distance = Math.abs(x - playerPos.x) + Math.abs(y - playerPos.y);
+    return distance <= 12; // Slightly larger than view range for smooth transitions
+  }
 
   private setupEventListeners(): void {
     this.events.on('Moved', (event: GameEvent) => {
@@ -20,7 +32,7 @@ export class FXSystem extends System {
         // Only spawn step dust occasionally for better visibility
         if (Math.random() < 0.3) {
           const position = this.world.getComponent<Position>(event.who, 'Position');
-          if (position) {
+          if (position && this.isNearVisible(position.x, position.y)) {
             this.renderer.spawnParticles(position.x, position.y, 'stepDust');
           }
         }
@@ -30,7 +42,7 @@ export class FXSystem extends System {
     this.events.on('Attack', (event: GameEvent) => {
       if (event.type === 'Attack') {
         const targetPos = this.world.getComponent<Position>(event.target, 'Position');
-        if (targetPos) {
+        if (targetPos && this.isNearVisible(targetPos.x, targetPos.y)) {
           this.renderer.spawnParticles(targetPos.x, targetPos.y, 'hitSpark');
         }
       }
@@ -39,7 +51,7 @@ export class FXSystem extends System {
     this.events.on('TookDamage', (event: GameEvent) => {
       if (event.type === 'TookDamage') {
         const position = this.world.getComponent<Position>(event.who, 'Position');
-        if (position && event.amount > 2) {
+        if (position && event.amount > 2 && this.isNearVisible(position.x, position.y)) {
           this.renderer.spawnParticles(position.x, position.y, 'bloodPuff');
         }
       }
@@ -48,7 +60,7 @@ export class FXSystem extends System {
     this.events.on('Died', (event: GameEvent) => {
       if (event.type === 'Died') {
         const position = this.world.getComponent<Position>(event.who, 'Position');
-        if (position) {
+        if (position && this.isNearVisible(position.x, position.y)) {
           this.renderer.spawnParticles(position.x, position.y, 'bloodPuff');
         }
       }

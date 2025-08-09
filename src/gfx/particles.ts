@@ -49,7 +49,7 @@ export const PARTICLE_PRESETS: { [key: string]: ParticlePreset } = {
     glyphCode: 250
   },
   hitSpark: {
-    count: 12,
+    count: 8,
     speed: 120,
     speedVariance: 40,
     life: 0.15,

@@ -27,6 +27,7 @@ export class RenderSystem extends System {
   }
 
   update(_deltaTime: number): void {
+    // Clear the entire screen (React UI handles the HUD overlay now)
     this.renderer.clear();
     
     const renderables = this.world.getEntitiesWithComponents('Position', 'RenderGlyph');

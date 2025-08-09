@@ -85,4 +85,9 @@ export class FOVSystem extends System {
   markDirty(): void {
     this.dirty = true;
   }
+
+  clearMemory(): void {
+    this.visibility.clear();
+    this.dirty = true;
+  }
 }

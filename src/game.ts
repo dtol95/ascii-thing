@@ -16,7 +16,9 @@ import { MapGenerator } from './world/mapGenerator';
 import { HUD } from './ui/hud';
 import { InventoryUI } from './ui/inventoryUI';
 import { KeybindUI } from './ui/keybindUI';
+// import { GameOverUI } from './ui/gameOverUI'; // Replaced by React GameOverModal
 import { RNG } from './rng';
+import { gameStateBridge } from './bridge/GameStateBridge';
 
 export interface GameConfig {
   gridWidth: number;
@@ -44,9 +46,12 @@ export class Game {
   private hud!: HUD;
   private inventoryUI!: InventoryUI;
   private keybindUI!: KeybindUI;
+  // private gameOverUI!: GameOverUI; // Replaced by React GameOverModal
   private waitingForInput = false;
   private stairsPosition?: [number, number];
   private currentFloor = 1;
+  private enemiesKilled = 0;
+  private itemsCollected = 0;
 
   constructor(private config: GameConfig) {
     this.world = new World();
@@ -84,6 +89,17 @@ export class Game {
       this.fxSystem,
       this.renderSystem
     ];
+    
+    // Setup event listeners for tracking stats
+    this.setupStatTracking();
+  }
+  
+  private setupStatTracking(): void {
+    this.events.on('Died', (event: any) => {
+      if (event.type === 'Died' && !this.world.hasComponent(event.who, 'Player')) {
+        this.enemiesKilled++;
+      }
+    });
   }
 
   async init(container: HTMLElement): Promise<void> {
@@ -110,8 +126,16 @@ export class Game {
     this.hud = new HUD(this.world, this.events, this.renderer, this.playerEntity, this.config.gridWidth, this.config.gridHeight);
     this.inventoryUI = new InventoryUI(this.world, this.renderer, this.config.gridWidth, this.config.gridHeight);
     this.keybindUI = new KeybindUI(this.renderer, this.config.gridWidth, this.config.gridHeight);
+    // this.gameOverUI = new GameOverUI(this.renderer, this.config.gridWidth, this.config.gridHeight); // Replaced by React
     
     this.generateLevel();
+    
+    // Initialize React state with starting values
+    const health = this.world.getComponent<Health>(this.playerEntity, 'Health');
+    if (health) {
+      gameStateBridge.updateHealth(health.hp, health.max, health.armor);
+    }
+    gameStateBridge.updateFloor(this.currentFloor);
     
     this.hud.addMessage('Welcome to the dungeon!', 0xffff00);
     this.hud.addMessage('Use arrow keys or WASD to move.', 0xaaaaaa);
@@ -129,6 +153,15 @@ export class Game {
     for (const entity of entitiesToRemove) {
       this.world.destroyEntity(entity);
     }
+    
+    // Clear player's inventory when transitioning floors (not on initial setup)
+    const playerInventory = this.world.getComponent<Inventory>(this.playerEntity, 'Inventory');
+    if (playerInventory && this.currentFloor > 1) {
+      playerInventory.slots = [];
+    }
+    
+    // Clear FOV memory for new floor
+    this.fovSystem.clearMemory();
     
     // Generate new map
     const mapGen = new MapGenerator(this.config.gridWidth, this.config.gridHeight, this.world);
@@ -163,6 +196,7 @@ export class Game {
     }
     
     this.fovSystem.markDirty();
+    this.lightingSystem.rebuildWallMap();
     this.lightingSystem.markDirty();
     
     this.hud.setFloor(this.currentFloor);
@@ -236,7 +270,13 @@ export class Game {
   private gameLoop = (): void => {
     if (!this.running) return;
 
-    // Handle keybind UI
+    // Check if React UI is blocking input
+    if (gameStateBridge.isUIBlocking()) {
+      requestAnimationFrame(this.gameLoop);
+      return;
+    }
+
+    // Handle keybind UI (legacy, will be replaced by React)
     if (this.keybindUI.isVisible()) {
       this.keybindUI.render();
       
@@ -335,6 +375,8 @@ export class Game {
             // Remove item from world position
             this.world.removeComponent(item, 'Position');
             this.hud.addMessage(`Picked up ${itemName?.name || 'item'}!`, 0x00ffff);
+            this.itemsCollected++;
+            gameStateBridge.incrementItemsCollected();
           }
         } else {
           this.hud.addMessage('There is nothing here to pick up.', 0xff0000);
@@ -360,8 +402,7 @@ export class Game {
         if (this.currentFloor >= 10) {
           // Win condition!
           this.hud.addMessage('Congratulations! You have conquered the dungeon!', 0xffff00);
-          this.hud.addMessage('You win! Press F5 to play again.', 0x00ff00);
-          this.stop();
+          gameStateBridge.showGameOver(true, this.currentFloor, this.enemiesKilled, this.itemsCollected);
         } else {
           this.currentFloor++;
           this.hud.addMessage('You descend deeper into the dungeon...', 0x00ff00);
@@ -410,8 +451,8 @@ export class Game {
     
     const playerHealth = this.world.getComponent<Health>(this.playerEntity, 'Health');
     if (playerHealth && playerHealth.hp <= 0) {
-      this.events.push({ type: 'Message', text: 'You have died! Press F5 to restart.', color: 0xff0000 });
-      this.stop();
+      this.events.push({ type: 'Message', text: 'You have died!', color: 0xff0000 });
+      gameStateBridge.showGameOver(false, this.currentFloor, this.enemiesKilled, this.itemsCollected);
     }
   }
 }

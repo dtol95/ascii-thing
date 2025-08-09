@@ -2,6 +2,7 @@ import type { World } from '../ecs/world';
 import type { EventBus, GameEvent } from '../ecs/events';
 import type { AsciiRenderer } from '../gfx/renderer';
 import type { Entity, Health, Name } from '../ecs/components';
+import { gameStateBridge } from '../bridge/GameStateBridge';
 
 export interface Message {
   text: string;
@@ -28,6 +29,7 @@ export class HUD {
   
   setFloor(floor: number): void {
     this.currentFloor = floor;
+    gameStateBridge.updateFloor(floor);
   }
 
   private setupEventListeners(): void {
@@ -50,6 +52,11 @@ export class HUD {
         const name = this.world.getComponent<Name>(event.who, 'Name')?.name || 'Something';
         const color = event.who === this.playerEntity ? 0xff0000 : 0x00ff00;
         this.addMessage(`${name} dies!`, color);
+        
+        // Track enemy deaths for stats
+        if (event.who !== this.playerEntity) {
+          gameStateBridge.incrementEnemiesKilled();
+        }
       }
     });
   }
@@ -59,6 +66,8 @@ export class HUD {
     if (this.messages.length > this.maxMessages) {
       this.messages.shift();
     }
+    // Send to React UI
+    gameStateBridge.addMessage(text, color);
   }
 
   update(_deltaTime: number): void {
@@ -67,12 +76,22 @@ export class HUD {
   }
 
   render(): void {
-    this.renderHealthBar();
-    this.renderMessages();
-    this.renderFloorInfo();
-    this.renderKeybindHint();
+    // Update React state with current health
+    const health = this.world.getComponent<Health>(this.playerEntity, 'Health');
+    if (health) {
+      gameStateBridge.updateHealth(health.hp, health.max, health.armor);
+    }
+    
+    // Rendering is now handled by React components
+    // Keeping old render methods commented for reference if needed
+    // this.renderHealthBar();
+    // this.renderMessages();
+    // this.renderFloorInfo();
+    // this.renderKeybindHint();
   }
 
+  // Legacy rendering methods - preserved for reference but not used with React UI
+  // @ts-ignore - Preserved for reference
   private renderHealthBar(): void {
     const health = this.world.getComponent<Health>(this.playerEntity, 'Health');
     if (!health) return;
@@ -100,6 +119,7 @@ export class HUD {
     }
   }
 
+  // @ts-ignore - Preserved for reference
   private renderMessages(): void {
     const startY = this.gridHeight - this.maxMessages - 2;
     const now = Date.now();
@@ -114,12 +134,14 @@ export class HUD {
     }
   }
 
+  // @ts-ignore - Preserved for reference
   private renderFloorInfo(): void {
     const floorText = `Floor: ${this.currentFloor}`;
     const color = this.currentFloor === 10 ? 0xff00ff : 0xffff00; // Special color for final floor
     this.renderer.writeString(this.gridWidth - 10, 1, floorText, color);
   }
 
+  // @ts-ignore - Preserved for reference
   private renderKeybindHint(): void {
     const helpText = "[?] Help";
     this.renderer.writeString(this.gridWidth - helpText.length - 1, this.gridHeight - 2, helpText, 0x00ffff);

@@ -9,6 +9,7 @@ export interface LightLevel {
 
 export class LightingSystem extends System {
   private lightMap: Map<string, LightLevel> = new Map();
+  private wallMap: Set<string> = new Set();
   private lightFov: InstanceType<typeof ROT.FOV.PreciseShadowcasting>;
   private dirty = true;
 
@@ -54,23 +55,26 @@ export class LightingSystem extends System {
     this.dirty = false;
   }
 
+  rebuildWallMap(): void {
+    this.wallMap.clear();
+    
+    const entities = this.world.getEntitiesWithComponents('Position', 'Tile');
+    for (const entity of entities) {
+      const pos = this.world.getComponent<Position>(entity, 'Position')!;
+      const tile = this.world.getComponent(entity, 'Tile') as any;
+      if (tile && tile.blocksLight) {
+        this.wallMap.add(`${pos.x},${pos.y}`);
+      }
+    }
+  }
+
   private lightPasses(x: number, y: number): boolean {
     if (x < 0 || x >= this.mapWidth || y < 0 || y >= this.mapHeight) {
       return false;
     }
     
-    const entities = this.world.getEntitiesWithComponents('Position', 'Tile');
-    for (const entity of entities) {
-      const pos = this.world.getComponent<Position>(entity, 'Position')!;
-      if (pos.x === x && pos.y === y) {
-        const tile = this.world.getComponent(entity, 'Tile') as any;
-        if (tile && tile.blocksLight) {
-          return false;
-        }
-      }
-    }
-    
-    return true;
+    // Use the cached wall map for O(1) lookup
+    return !this.wallMap.has(`${x},${y}`);
   }
 
   getLightAt(x: number, y: number): LightLevel | null {

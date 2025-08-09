@@ -14,6 +14,8 @@ export interface AIIntent {
 
 export class AISystem extends System {
   private movementSystem?: MovementSystem;
+  private pathCalculationsThisTurn = 0;
+  private readonly MAX_PATH_CALCULATIONS_PER_TURN = 4;
   
   constructor(
     world: World,
@@ -29,6 +31,8 @@ export class AISystem extends System {
   }
 
   update(_deltaTime: number): void {
+    // Reset path calculations counter each game update cycle
+    this.pathCalculationsThisTurn = 0;
   }
 
   getIntent(entity: Entity): AIIntent {
@@ -105,6 +109,7 @@ export class AISystem extends System {
       return this.wanderBehavior(entity, position);
     }
 
+    // Attack if adjacent
     if (distance === 1) {
       return {
         type: 'attack',
@@ -114,7 +119,29 @@ export class AISystem extends System {
       };
     }
 
-    // Create a new pathfinding instance for this calculation
+    // Check if we've hit the pathfinding limit for this turn
+    if (this.pathCalculationsThisTurn >= this.MAX_PATH_CALCULATIONS_PER_TURN) {
+      // Use simple movement toward player
+      const dx = Math.sign(playerPos.x - position.x);
+      const dy = Math.sign(playerPos.y - position.y);
+      
+      // Try horizontal/vertical movement first
+      if (dx !== 0 && this.movementSystem?.canMoveTo(position.x + dx, position.y)) {
+        return { type: 'move', dx, dy: 0 };
+      }
+      if (dy !== 0 && this.movementSystem?.canMoveTo(position.x, position.y + dy)) {
+        return { type: 'move', dx: 0, dy };
+      }
+      // Try diagonal if straight doesn't work
+      if (dx !== 0 && dy !== 0 && this.movementSystem?.canMoveTo(position.x + dx, position.y + dy)) {
+        return { type: 'move', dx, dy };
+      }
+      return { type: 'wait' };
+    }
+
+    // Use A* pathfinding
+    this.pathCalculationsThisTurn++;
+    
     const astar = new ROT.Path.AStar(
       playerPos.x,
       playerPos.y,

@@ -19,6 +19,8 @@ export class AsciiRenderer {
   private config: Required<RendererConfig>;
   private baseTexture!: Texture;
   private particleSystem!: ParticleSystem;
+  private currentScale: number = 1;
+  private parentElement!: HTMLElement;
 
   constructor(config: RendererConfig) {
     this.config = {
@@ -31,6 +33,8 @@ export class AsciiRenderer {
   }
 
   async init(parent: HTMLElement): Promise<void> {
+    this.parentElement = parent;
+    
     await this.app.init({
       width: this.config.gridWidth * this.config.cellSize,
       height: this.config.gridHeight * this.config.cellSize,
@@ -42,6 +46,12 @@ export class AsciiRenderer {
 
     parent.appendChild(this.app.canvas);
     this.app.stage.addChild(this.container);
+    
+    // Apply initial integer scaling
+    this.updateScale();
+    
+    // Listen for window resize events
+    window.addEventListener('resize', () => this.updateScale());
 
     this.createGlyphTextures();
     // Initialize particle system first so particles render behind sprites
@@ -129,8 +139,11 @@ export class AsciiRenderer {
     }
   }
 
-  clear(): void {
-    for (let y = 0; y < this.config.gridHeight; y++) {
+  clear(startY?: number, endY?: number): void {
+    const yStart = startY ?? 0;
+    const yEnd = endY ?? this.config.gridHeight;
+    
+    for (let y = yStart; y < yEnd; y++) {
       for (let x = 0; x < this.config.gridWidth; x++) {
         this.putGlyph(x, y, 0, 0xffffff);
       }
@@ -164,7 +177,60 @@ export class AsciiRenderer {
     return this.particleSystem.getParticleCount();
   }
 
+  updateScale(): void {
+    if (!this.parentElement) return;
+    
+    // Get the available space
+    const availableWidth = window.innerWidth;
+    const availableHeight = window.innerHeight;
+    
+    // Calculate the game's native size
+    const gameWidth = this.config.gridWidth * this.config.cellSize;
+    const gameHeight = this.config.gridHeight * this.config.cellSize;
+    
+    // Calculate the integer scale factor
+    const scaleX = Math.floor(availableWidth / gameWidth);
+    const scaleY = Math.floor(availableHeight / gameHeight);
+    const scale = Math.max(1, Math.min(scaleX, scaleY));
+    
+    this.currentScale = scale;
+    
+    // Apply scale to the entire stage
+    this.app.stage.scale.set(scale);
+    
+    // Update the canvas size to match the scaled dimensions
+    this.app.renderer.resize(gameWidth * scale, gameHeight * scale);
+    
+    // Center the canvas with letterboxing
+    const scaledWidth = gameWidth * scale;
+    const scaledHeight = gameHeight * scale;
+    const left = Math.floor((availableWidth - scaledWidth) / 2);
+    const top = Math.floor((availableHeight - scaledHeight) / 2);
+    
+    // Apply positioning to the canvas
+    const canvas = this.app.canvas as HTMLCanvasElement;
+    canvas.style.position = 'absolute';
+    canvas.style.left = `${left}px`;
+    canvas.style.top = `${top}px`;
+  }
+  
+  getScale(): number {
+    return this.currentScale;
+  }
+  
+  getScaledDimensions(): { width: number; height: number; left: number; top: number } {
+    const gameWidth = this.config.gridWidth * this.config.cellSize;
+    const gameHeight = this.config.gridHeight * this.config.cellSize;
+    const scaledWidth = gameWidth * this.currentScale;
+    const scaledHeight = gameHeight * this.currentScale;
+    const left = Math.floor((window.innerWidth - scaledWidth) / 2);
+    const top = Math.floor((window.innerHeight - scaledHeight) / 2);
+    
+    return { width: scaledWidth, height: scaledHeight, left, top };
+  }
+  
   destroy(): void {
+    window.removeEventListener('resize', () => this.updateScale());
     this.app.destroy(true);
   }
 }
