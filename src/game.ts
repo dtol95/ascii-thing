@@ -12,10 +12,11 @@ import { AISystem } from './ecs/systems/ai';
 import { CombatSystem } from './ecs/systems/combat';
 import { FXSystem } from './ecs/systems/fx';
 import { ItemSystem } from './ecs/systems/item';
+import { NarrativeSystem } from './ecs/systems/narrative';
 import { MapGenerator } from './world/mapGenerator';
 import { HUD } from './ui/hud';
-import { InventoryUI } from './ui/inventoryUI';
-import { KeybindUI } from './ui/keybindUI';
+// import { InventoryUI } from './ui/inventoryUI'; // Replaced by React InventoryModal
+// import { KeybindUI } from './ui/keybindUI'; // Replaced by React HelpModal
 // import { GameOverUI } from './ui/gameOverUI'; // Replaced by React GameOverModal
 import { RNG } from './rng';
 import { gameStateBridge } from './bridge/GameStateBridge';
@@ -43,15 +44,18 @@ export class Game {
   private combatSystem: CombatSystem;
   private fxSystem: FXSystem;
   private itemSystem: ItemSystem;
+  private narrativeSystem!: NarrativeSystem;
   private hud!: HUD;
-  private inventoryUI!: InventoryUI;
-  private keybindUI!: KeybindUI;
+  // private inventoryUI!: InventoryUI; // Replaced by React InventoryModal
+  // private keybindUI!: KeybindUI; // Replaced by React HelpModal
   // private gameOverUI!: GameOverUI; // Replaced by React GameOverModal
   private waitingForInput = false;
   private stairsPosition?: [number, number];
   private currentFloor = 1;
   private enemiesKilled = 0;
   private itemsCollected = 0;
+  private turnsSurvived = 0;
+  private lastKiller?: string;
 
   constructor(private config: GameConfig) {
     this.world = new World();
@@ -72,11 +76,13 @@ export class Game {
     this.fxSystem = new FXSystem(this.world, this.events, this.renderer);
     this.itemSystem = new ItemSystem(this.world, this.events);
     this.renderSystem = new RenderSystem(this.world, this.events, this.renderer);
+    // NarrativeSystem will be initialized after player entity is created
     
     this.aiSystem.setMovementSystem(this.movementSystem);
     this.renderSystem.setFOVSystem(this.fovSystem);
     this.renderSystem.setLightingSystem(this.lightingSystem);
     
+    // Initial systems array (narrativeSystem will be added after player creation)
     this.systems = [
       this.energySystem,
       this.inputSystem,
@@ -96,8 +102,26 @@ export class Game {
   
   private setupStatTracking(): void {
     this.events.on('Died', (event: any) => {
-      if (event.type === 'Died' && !this.world.hasComponent(event.who, 'Player')) {
-        this.enemiesKilled++;
+      if (event.type === 'Died') {
+        if (!this.world.hasComponent(event.who, 'Player')) {
+          this.enemiesKilled++;
+        } else {
+          // Track what killed the player
+          if (event.killer) {
+            const killerName = this.world.getComponent<Name>(event.killer, 'Name');
+            this.lastKiller = killerName?.name || 'Unknown';
+          }
+        }
+      }
+    });
+    
+    // Track combat for death attribution
+    this.events.on('TookDamage', (event: any) => {
+      if (event.type === 'TookDamage' && event.who === this.playerEntity) {
+        if (event.attacker) {
+          const attackerName = this.world.getComponent<Name>(event.attacker, 'Name');
+          this.lastKiller = attackerName?.name || 'Unknown';
+        }
       }
     });
   }
@@ -123,9 +147,19 @@ export class Game {
     this.world.addComponent<Melee>(this.playerEntity, 'Melee', { damageMin: 2, damageMax: 4, type: 'phys' });
     this.world.addComponent<Inventory>(this.playerEntity, 'Inventory', { slots: [] });
     
+    // Initialize narrative system now that player exists
+    this.narrativeSystem = new NarrativeSystem(this.world, this.events, this.playerEntity);
+    // Add narrative system to the systems array
+    this.systems.splice(this.systems.length - 2, 0, this.narrativeSystem); // Insert before FX and Render systems
+    
     this.hud = new HUD(this.world, this.events, this.renderer, this.playerEntity, this.config.gridWidth, this.config.gridHeight);
-    this.inventoryUI = new InventoryUI(this.world, this.renderer, this.config.gridWidth, this.config.gridHeight);
-    this.keybindUI = new KeybindUI(this.renderer, this.config.gridWidth, this.config.gridHeight);
+    // this.inventoryUI = new InventoryUI(this.world, this.renderer, this.config.gridWidth, this.config.gridHeight); // Replaced by React
+    // this.keybindUI = new KeybindUI(this.renderer, this.config.gridWidth, this.config.gridHeight); // Replaced by React HelpModal
+    
+    // Set up inventory item use callback
+    gameStateBridge.setItemUseCallback((index: number) => {
+      this.handleInventoryItemUse(index);
+    });
     // this.gameOverUI = new GameOverUI(this.renderer, this.config.gridWidth, this.config.gridHeight); // Replaced by React
     
     this.generateLevel();
@@ -201,6 +235,12 @@ export class Game {
     
     this.hud.setFloor(this.currentFloor);
     this.hud.addMessage(`Floor ${this.currentFloor} - ${this.getFloorDescription()}`, 0xffff00);
+    
+    // Update narrative system floor
+    if (this.narrativeSystem) {
+      this.narrativeSystem.setFloor(this.currentFloor);
+      this.events.push({ type: 'FloorChanged', floor: this.currentFloor });
+    }
   }
   
   private getFloorDescription(): string {
@@ -257,6 +297,35 @@ export class Game {
     
     return null;
   }
+  
+  private syncInventoryWithReact(): void {
+    const inventory = this.world.getComponent<Inventory>(this.playerEntity, 'Inventory');
+    if (!inventory) return;
+    
+    const items = inventory.slots.map((item) => {
+      const name = this.world.getComponent<Name>(item, 'Name');
+      const itemComp = this.world.getComponent(item, 'Item') as any;
+      
+      return {
+        id: item,
+        name: name?.name || 'Unknown Item',
+        effect: itemComp?.data?.effect
+      };
+    });
+    
+    gameStateBridge.updateInventory(items);
+  }
+  
+  private handleInventoryItemUse(index: number): void {
+    const inventory = this.world.getComponent<Inventory>(this.playerEntity, 'Inventory');
+    if (!inventory || index >= inventory.slots.length) return;
+    
+    const item = inventory.slots[index];
+    if (this.itemSystem.useItem(item, this.playerEntity)) {
+      inventory.slots.splice(index, 1);
+      this.syncInventoryWithReact();
+    }
+  }
 
   start(): void {
     this.running = true;
@@ -276,53 +345,9 @@ export class Game {
       return;
     }
 
-    // Handle keybind UI (legacy, will be replaced by React)
-    if (this.keybindUI.isVisible()) {
-      this.keybindUI.render();
-      
-      if (!this.waitingForInput) {
-        this.waitingForInput = true;
-        this.inputSystem.waitForInput().then(intent => {
-          if (intent.type === 'action' && (intent.action === 'help' || intent.action === 'escape')) {
-            this.keybindUI.hide();
-          }
-          this.waitingForInput = false;
-          requestAnimationFrame(this.gameLoop);
-        });
-        return;
-      }
-      requestAnimationFrame(this.gameLoop);
-      return;
-    }
+    // Help UI is now handled by React, no need for legacy rendering
 
-    // Handle inventory UI
-    if (this.inventoryUI.isVisible()) {
-      this.inventoryUI.render(this.playerEntity);
-      
-      if (!this.waitingForInput) {
-        this.waitingForInput = true;
-        this.inputSystem.waitForInput().then(intent => {
-          if (intent.type === 'action' && (intent.action === 'inventory' || intent.action === 'escape')) {
-            this.inventoryUI.hide();
-          } else if (intent.type === 'action' && intent.action === 'useItem' && intent.itemIndex !== undefined) {
-            // Use item from inventory
-            const inventory = this.world.getComponent<Inventory>(this.playerEntity, 'Inventory');
-            if (inventory && intent.itemIndex < inventory.slots.length) {
-              const item = inventory.slots[intent.itemIndex];
-              if (this.itemSystem.useItem(item, this.playerEntity)) {
-                inventory.slots.splice(intent.itemIndex, 1);
-              }
-            }
-            this.inventoryUI.hide();
-          }
-          this.waitingForInput = false;
-          requestAnimationFrame(this.gameLoop);
-        });
-        return;
-      }
-      requestAnimationFrame(this.gameLoop);
-      return;
-    }
+    // Inventory UI is now handled by React, no need for legacy rendering
 
     const readyActor = this.energySystem.getReadyActor();
     
@@ -377,19 +402,22 @@ export class Game {
             this.hud.addMessage(`Picked up ${itemName?.name || 'item'}!`, 0x00ffff);
             this.itemsCollected++;
             gameStateBridge.incrementItemsCollected();
+            // Sync inventory with React
+            this.syncInventoryWithReact();
           }
         } else {
           this.hud.addMessage('There is nothing here to pick up.', 0xff0000);
         }
       }
     } else if (intent.type === 'action' && intent.action === 'inventory') {
-      // Open inventory UI
-      this.inventoryUI.show();
+      // Toggle React inventory modal and sync inventory state
+      this.syncInventoryWithReact();
+      gameStateBridge.toggleInventory();
       // Don't consume energy for opening inventory
       return;
     } else if (intent.type === 'action' && intent.action === 'help') {
-      // Open keybind UI
-      this.keybindUI.show();
+      // Toggle React help modal
+      gameStateBridge.toggleKeybindHelp();
       // Don't consume energy for opening help
       return;
     } else if (intent.type === 'action' && intent.action === 'descend') {
@@ -402,7 +430,14 @@ export class Game {
         if (this.currentFloor >= 10) {
           // Win condition!
           this.hud.addMessage('Congratulations! You have conquered the dungeon!', 0xffff00);
-          gameStateBridge.showGameOver(true, this.currentFloor, this.enemiesKilled, this.itemsCollected);
+          gameStateBridge.showGameOver(
+            true, 
+            this.currentFloor, 
+            this.enemiesKilled, 
+            this.itemsCollected,
+            undefined,
+            this.turnsSurvived
+          );
         } else {
           this.currentFloor++;
           this.hud.addMessage('You descend deeper into the dungeon...', 0x00ff00);
@@ -447,12 +482,23 @@ export class Game {
     const actor = this.world.getComponent<Actor>(entity, 'Actor');
     if (actor) {
       actor.energy -= 100;
+      // Increment turns for player actions
+      if (entity === this.playerEntity) {
+        this.turnsSurvived++;
+      }
     }
     
     const playerHealth = this.world.getComponent<Health>(this.playerEntity, 'Health');
     if (playerHealth && playerHealth.hp <= 0) {
       this.events.push({ type: 'Message', text: 'You have died!', color: 0xff0000 });
-      gameStateBridge.showGameOver(false, this.currentFloor, this.enemiesKilled, this.itemsCollected);
+      gameStateBridge.showGameOver(
+        false, 
+        this.currentFloor, 
+        this.enemiesKilled, 
+        this.itemsCollected,
+        this.lastKiller,
+        this.turnsSurvived
+      );
     }
   }
 }

@@ -2,6 +2,11 @@ import { System } from '../system';
 import type { Entity, Health, Melee, Position, Name } from '../components';
 import type { World } from '../world';
 import type { EventBus } from '../events';
+import { 
+  combatMessages, 
+  getDamageCategory, 
+  getRandomCombatMessage 
+} from '../../data/combatText';
 
 export class CombatSystem extends System {
   constructor(
@@ -31,12 +36,67 @@ export class CombatSystem extends System {
       );
     }
 
-    damage = Math.max(1, damage - targetHealth.armor);
-    targetHealth.hp -= damage;
+    // Apply armor
+    damage = Math.max(0, damage - targetHealth.armor);
+    
+    // Determine if player is attacking or being attacked
+    const isPlayerAttacker = this.world.hasComponent(attacker, 'Player');
+    const isPlayerTarget = this.world.hasComponent(target, 'Player');
+    
+    // Get appropriate combat message based on damage
+    const damageCategory = getDamageCategory(damage, melee?.damageMax || 4);
+    let combatMessage = '';
+    let messageColor = 0xffffff;
+    
+    if (damage === 0) {
+      // Armor blocked the attack
+      combatMessage = `${targetName}'s armor absorbs the blow!`;
+      messageColor = 0x888888;
+    } else {
+      // Apply damage
+      targetHealth.hp -= damage;
+      
+      // Check if this is a killing blow
+      const isKillingBlow = targetHealth.hp <= 0;
+      
+      if (isPlayerAttacker) {
+        // Player is attacking
+        if (isKillingBlow) {
+          combatMessage = getRandomCombatMessage(
+            combatMessages.playerAttack.kill,
+            { enemy: targetName }
+          );
+          messageColor = 0x00ff00;
+        } else {
+          const messages = combatMessages.playerAttack[damageCategory];
+          combatMessage = getRandomCombatMessage(messages, { 
+            enemy: targetName,
+            damage: damage
+          });
+          messageColor = damageCategory === 'strong' ? 0xffff00 : 
+                        damageCategory === 'weak' ? 0xcccccc : 0xffffff;
+        }
+      } else if (isPlayerTarget) {
+        // Player is being attacked
+        const messages = combatMessages.enemyAttack[damageCategory];
+        combatMessage = getRandomCombatMessage(messages, { 
+          enemy: attackerName,
+          damage: damage
+        });
+        messageColor = damageCategory === 'strong' ? 0xff0000 : 
+                       damageCategory === 'weak' ? 0xffaa00 : 0xff6666;
+      } else {
+        // NPC vs NPC (simple message)
+        combatMessage = `${attackerName} hits ${targetName} for ${damage} damage!`;
+        messageColor = 0xaaaaaa;
+      }
+    }
 
+    // Send events
     this.events.push({
       type: 'TookDamage',
       who: target,
+      attacker: attacker,
       amount: damage,
       damageType: melee?.type || 'phys'
     });
@@ -49,22 +109,18 @@ export class CombatSystem extends System {
 
     this.events.push({
       type: 'Message',
-      text: `${attackerName} hits ${targetName} for ${damage} damage!`,
-      color: 0xff0000
+      text: combatMessage,
+      color: messageColor
     });
 
     if (targetHealth.hp <= 0) {
       this.events.push({
         type: 'Died',
-        who: target
+        who: target,
+        killer: attacker
       });
 
-      this.events.push({
-        type: 'Message',
-        text: `${targetName} dies!`,
-        color: 0xff0000
-      });
-
+      // Death message is handled by the HUD event listener
       this.world.destroyEntity(target);
     }
 

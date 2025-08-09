@@ -20,6 +20,8 @@ export interface GameStats {
   enemiesKilled: number;
   itemsCollected: number;
   victory: boolean;
+  killerName?: string;
+  turnsSurvived?: number;
 }
 
 interface GameState {

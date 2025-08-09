@@ -2,15 +2,19 @@ import type { Entity } from './components';
 
 export type GameEvent =
   | { type: "Moved"; who: Entity; from: [number, number]; to: [number, number] }
-  | { type: "TookDamage"; who: Entity; amount: number; damageType: string }
-  | { type: "Died"; who: Entity }
+  | { type: "TookDamage"; who: Entity; attacker?: Entity; amount: number; damageType: string }
+  | { type: "Died"; who: Entity; killer?: Entity }
   | { type: "Healed"; who: Entity; amount: number }
   | { type: "PickedItem"; who: Entity; item: Entity }
   | { type: "Descend"; who: Entity }
   | { type: "ProjectileHit"; who: Entity; target: Entity; amount: number }
   | { type: "ApplyStatus"; who: Entity; effect: string; turns: number }
   | { type: "Attack"; attacker: Entity; target: Entity }
-  | { type: "Message"; text: string; color?: number };
+  | { type: "Message"; text: string; color?: number }
+  | { type: "LowHealth"; who: Entity }
+  | { type: "FloorChanged"; floor: number }
+  | { type: "StairsFound" }
+  | { type: "ItemSpotted" };
 
 export class EventBus {
   private events: GameEvent[] = [];

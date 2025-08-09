@@ -6,6 +6,7 @@ import { gameStore, type InventoryItem } from '../store/gameStore';
  */
 export class GameStateBridge {
   private static instance: GameStateBridge;
+  private itemUseCallback?: (index: number) => void;
   
   private constructor() {}
   
@@ -41,12 +42,21 @@ export class GameStateBridge {
   }
   
   // Game over
-  showGameOver(victory: boolean, floor: number, enemiesKilled: number, itemsCollected: number): void {
+  showGameOver(
+    victory: boolean, 
+    floor: number, 
+    enemiesKilled: number, 
+    itemsCollected: number,
+    killerName?: string,
+    turnsSurvived?: number
+  ): void {
     gameStore().showGameOver({
       floor,
       enemiesKilled,
       itemsCollected,
-      victory
+      victory,
+      killerName,
+      turnsSurvived
     });
   }
   
@@ -67,6 +77,17 @@ export class GameStateBridge {
   // Reset game state
   reset(): void {
     gameStore().reset();
+  }
+  
+  // Item usage
+  setItemUseCallback(callback: (index: number) => void): void {
+    this.itemUseCallback = callback;
+  }
+  
+  useInventoryItem(index: number): void {
+    if (this.itemUseCallback) {
+      this.itemUseCallback(index);
+    }
   }
   
   // Check UI state (for game to know if UI is blocking)

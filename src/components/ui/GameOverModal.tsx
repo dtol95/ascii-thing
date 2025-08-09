@@ -1,12 +1,21 @@
 import React from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { getDeathMessage } from '../../data/deathMessages';
 
 export const GameOverModal: React.FC = () => {
   const { gameOver, gameOverStats } = useGameStore();
   
   if (!gameOver || !gameOverStats) return null;
   
-  const { victory, floor, enemiesKilled, itemsCollected } = gameOverStats;
+  const { victory, floor, enemiesKilled, itemsCollected, killerName, turnsSurvived } = gameOverStats;
+  
+  // Get contextual death message
+  const deathInfo = !victory ? getDeathMessage({
+    killerName,
+    floor,
+    turnsAlive: turnsSurvived || 0,
+    enemiesKilled
+  }) : null;
   
   return (
     <div style={{
@@ -44,11 +53,33 @@ export const GameOverModal: React.FC = () => {
         
         <p style={{
           fontSize: '18px',
-          margin: '0 0 30px 0',
-          color: victory ? '#ffff00' : '#aa0000'
+          margin: '0 0 10px 0',
+          color: victory ? '#ffff00' : '#ff6666'
         }}>
-          {victory ? 'You have conquered the dungeon!' : 'You have died!'}
+          {victory ? 'You have conquered the dungeon!' : (deathInfo?.message || 'You have died!')}
         </p>
+        
+        {!victory && killerName && (
+          <p style={{
+            fontSize: '16px',
+            margin: '0 0 20px 0',
+            color: '#ff0000',
+            fontStyle: 'italic'
+          }}>
+            Slain by {killerName}
+          </p>
+        )}
+        
+        {!victory && deathInfo?.epitaph && (
+          <p style={{
+            fontSize: '14px',
+            margin: '0 0 20px 0',
+            color: '#888888',
+            fontStyle: 'italic'
+          }}>
+            "{deathInfo.epitaph}"
+          </p>
+        )}
         
         <div style={{
           fontSize: '48px',
@@ -79,8 +110,29 @@ export const GameOverModal: React.FC = () => {
             <div>Floor Reached: <span style={{ color: '#ffff00' }}>{floor}{victory && ' (MAX)'}</span></div>
             <div>Enemies Defeated: <span style={{ color: '#ff8800' }}>{enemiesKilled}</span></div>
             <div>Items Collected: <span style={{ color: '#00ffff' }}>{itemsCollected}</span></div>
+            {turnsSurvived && (
+              <div>Turns Survived: <span style={{ color: '#ff00ff' }}>{turnsSurvived}</span></div>
+            )}
           </div>
         </div>
+        
+        {!victory && deathInfo?.hint && (
+          <div style={{
+            marginTop: '20px',
+            padding: '10px',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            border: '1px solid #444444',
+            borderRadius: '4px'
+          }}>
+            <p style={{
+              fontSize: '14px',
+              color: '#00ff00',
+              margin: 0
+            }}>
+              {deathInfo.hint}
+            </p>
+          </div>
+        )}
         
         <div style={{
           marginTop: '30px',

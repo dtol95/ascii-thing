@@ -11,9 +11,12 @@ Welcome to the dungeon! You are **@** - a brave adventurer exploring procedurall
 | **↑↓←→** or **WASD** | Move | Move your character in four directions |
 | **Space** or **.** | Wait | Skip your turn (useful for letting enemies come to you) |
 | **g** | Pick up | Pick up items at your location |
-| **i** | Use Potion | Use health potion from inventory (if available) |
+| **i** | Inventory | Open inventory modal (React UI) |
+| **1-9** | Use Item | Use item from inventory (when modal is open) |
+| **?** | Help | Show help modal with keybinds |
 | **<** | Ascend | Go up stairs (when on stairs) |
 | **>** | Descend | Go down stairs (when on stairs) |
+| **Escape** | Close | Close any open modal |
 | **f** | Fire | Fire ranged weapon (*coming soon*) |
 
 ### Tips for Movement
@@ -101,12 +104,32 @@ The game features visual feedback through particle effects:
 - **Hit Sparks**: Yellow-white sparks on successful attacks
 - **Blood**: Red particles when taking damage
 
+## New Features
+
+### React UI Modals
+The game now features modern React-based UI overlays:
+- **Inventory Modal**: Press 'i' to open, shows all items with descriptions
+- **Help Modal**: Press '?' to view controls and coming soon features
+- **Game Over Screen**: Enhanced with death context and statistics
+- All modals use ASCII-style borders for thematic consistency
+
+### Narrative System
+The game now includes atmospheric text:
+- **Environmental Messages**: Ambient descriptions that appear during exploration
+- **Floor Themes**: Each level has unique atmosphere and descriptions
+- **Dynamic Combat**: Varied combat messages based on damage dealt
+- **Death Context**: Learn what killed you and receive helpful hints
+
+### Responsive Design
+- **Integer Scaling**: The game scales perfectly to any screen size
+- **Letterboxing**: Maintains aspect ratio without stretching
+- **Pixel-Perfect**: No blur or distortion at any size
+
 ## Current Limitations
 As the game is in development, some features are not yet implemented:
 - Limited item variety (only health potions)
 - Single enemy type (rats only)
 - No save/load functionality
-- No full inventory UI (press 'i' to use potions)
 - No ranged weapons or armor yet
 
 ## Tips for New Players
@@ -122,6 +145,8 @@ As the game is in development, some features are not yet implemented:
 - **Pillar Dancing**: Circle around a pillar to break line of sight
 - **Energy Management**: Sometimes waiting gives you a double turn
 - **Spawn Control**: Clear areas systematically to avoid surprises
+- **Message Reading**: Pay attention to environmental messages for clues
+- **Death Learning**: Use death hints to improve your strategy
 
 ## Keyboard Reference Card
 ```
@@ -132,9 +157,12 @@ Movement:     ↑ W
 Actions:
 Space/. = Wait
 g = Pick up items
-i = Use health potion
+i = Open inventory modal
+1-9 = Use item (in inventory)
+? = Show help modal
 < = Go upstairs
 > = Go downstairs
+Escape = Close modals
 f = Fire ranged (coming soon)
 
 Meta:
@@ -147,6 +175,16 @@ F5 = Restart game
 - **No damage dealt?** - Check the message log for combat details
 - **Game frozen?** - The game waits for your input when it's your turn
 - **Black screen?** - Try refreshing the page (F5)
+
+## Coming Soon
+Exciting features in development:
+- **More Enemies**: Goblins, Orcs, Skeletons, Boss monsters
+- **Equipment System**: Weapons and armor with stats
+- **Magic**: Scrolls and spells
+- **Status Effects**: Poison, burn, stun
+- **Loot Drops**: Enemies drop items
+- **Story Elements**: Uncover the dungeon's mysteries
+- **Save System**: Continue your adventure later
 
 ---
 

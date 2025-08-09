@@ -10,17 +10,27 @@ A browser-based, turn-based roguelike rendered with ASCII glyphs while leveragin
 - **Hybrid Architecture**: React UI layer + PixiJS game rendering for best of both worlds
 - **ECS Architecture**: Entity-Component-System for modular game logic
 - **ASCII Renderer**: PixiJS v8 with dynamically generated CP437 bitmap font (60 FPS)
-- **React UI Components**: Smooth animated health bar, message log, game over screen
+- **Integer Scaling**: Pixel-perfect responsive design with letterboxing
+- **React UI Components**: 
+  - Animated health bar, message log, floor indicator
+  - ASCII-styled inventory modal with keyboard navigation
+  - Help modal with keybinds and coming soon features
+  - Enhanced game over screen with death context and stats
 - **State Management**: Zustand store with GameStateBridge for ECS → React communication
-- **Turn-Based Combat**: Energy-based turn system with melee combat
+- **Turn-Based Combat**: Energy-based turn system with dynamic combat text
+- **Narrative System**: Environmental messages, floor themes, contextual feedback
 - **Procedural Generation**: BSP dungeon rooms connected by corridors (rot-js)
 - **Field of View**: Shadowcasting FOV with memory system (clears on floor change)
 - **Dynamic Lighting**: Light propagation with static wall map for O(1) performance
 - **Enemy AI**: Hunt and wander behaviors with optimized A* pathfinding (4 calculations/turn max)
-- **Combat System**: Melee attacks with damage calculation and armor
+- **Combat System**: 
+  - Melee attacks with damage calculation and armor
+  - Dynamic combat messages based on damage dealt
+  - Death tracking with killer attribution
 - **Particle Effects**: Optimized hit sparks, step dust, blood (only spawn near player)
 - **UI/HUD**: React-based health bar, message log, floor indicator with smooth animations
 - **Seeded Runs**: Deterministic RNG for reproducible gameplay (?seed=12345)
+- **Data-Driven Content**: Modular message files for easy content expansion
 
 ## How to Play
 
@@ -28,9 +38,10 @@ A browser-based, turn-based roguelike rendered with ASCII glyphs while leveragin
 - **Arrow Keys/WASD**: Move your character (@)
 - **Space/.**: Wait one turn
 - **g**: Pick up items
-- **i**: Open inventory (use items with number keys)
+- **i**: Open inventory modal (React UI)
+- **1-9**: Use items in inventory
 - **>**: Descend stairs (when standing on them)
-- **?**: Show keybind help
+- **?**: Show help modal with keybinds
 
 ### Game Elements
 - **@** (Yellow): You, the player
@@ -73,15 +84,21 @@ npm run dev
 - [x] **Difficulty progression** (enemies scale with floor)
 - [x] **Win condition** (reach floor 10)
 
-### 🚧 Future Features
-- [ ] Full inventory UI overlay
-- [ ] Status effects (burn, poison, slow, stun)
-- [ ] Save/load functionality
-- [ ] More enemy types (goblins, orcs, skeletons)
-- [ ] More item types (weapons, armor)
-- [ ] Ranged combat
-- [ ] Spells and abilities
-- [ ] Performance optimization
+### 🚧 Coming Soon
+- [ ] **Enemy Variety**: Goblins, Orcs, Skeletons, Boss enemies
+- [ ] **Expanded Items**: 
+  - Weapons (Dagger, Sword, Axe)
+  - Armor (Leather, Chain, Plate)
+  - Scrolls (Fireball, Teleport, Identify)
+  - Food (Bread, Meat)
+- [ ] **Status Effects**: Poison, Burn, Stun, Slow
+- [ ] **Loot System**: Enemy drops with rarity tiers
+- [ ] **Random Events**: Non-combat encounters
+- [ ] **Dungeon Lore**: Story elements and collectibles
+- [ ] **Save/Load**: Persistent game state
+- [ ] **Ranged Combat**: Bows, throwing weapons
+- [ ] **Magic System**: Spells and mana
+- [ ] **Character Progression**: Experience and leveling
 
 ## Architecture
 
@@ -114,23 +131,30 @@ The game follows the design document's ECS architecture:
 - Procedurally generated dungeons
 - Seeded runs for speedrunning/challenges
 
-### What's New
-- **React UI Integration**: Modern UI components with smooth animations
-- **Performance Optimizations**: Smart pathfinding limits, particle culling, selective rendering
-- **Healing System**: Health potions spawn throughout the dungeon
-- **10 Dungeon Levels**: Progress through increasingly difficult floors
-- **Difficulty Scaling**: Enemies get stronger and more numerous on deeper floors
-- **Win Condition**: Reach and conquer floor 10!
-- **Floor Transitions**: Gain 5 HP when descending to reward exploration
-- **Game Over Screen**: Beautiful victory/defeat modal with final stats
+### What's New (Latest Update)
+- **React Modal UIs**: Full inventory and help screens with ASCII styling
+- **Narrative System**: 
+  - Environmental messages that add atmosphere
+  - Floor-specific themes and descriptions
+  - Dynamic combat text for variety
+- **Enhanced Death System**:
+  - Tracks what killed you
+  - Contextual death messages
+  - Helpful hints for improvement
+  - Death statistics (turns survived, enemies killed)
+- **Integer Scaling**: Pixel-perfect responsive design without blur
+- **Content System**: Modular data files for messages and combat text
+- **Improved Combat Feedback**: Varied messages based on damage dealt
 
 ### Recent Improvements
-- ✅ Fixed visibility persistence between floors
-- ✅ Fixed item count tracking issues
-- ✅ Eliminated HUD flickering with selective screen clearing
-- ✅ Added proper game over screen with stats
-- ✅ Optimized pathfinding for better performance with many enemies
-- ✅ Integrated React UI layer for modern interface
+- ✅ Added React modal system for inventory and help
+- ✅ Implemented narrative system with environmental messages
+- ✅ Enhanced death tracking and contextual messages
+- ✅ Added integer scaling for responsive display
+- ✅ Fixed edge clearing bug on floor transitions
+- ✅ Created modular content system for easy expansion
+- ✅ Added dynamic combat text for variety
+- ✅ Improved game over screen with full statistics
 
 ### Known Issues
 - Only one enemy type (rats) - more variety coming soon

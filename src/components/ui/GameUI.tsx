@@ -4,6 +4,8 @@ import { MessageLog } from './MessageLog';
 import { FloorIndicator } from './FloorIndicator';
 import { KeybindHint } from './KeybindHint';
 import { GameOverModal } from './GameOverModal';
+import { HelpModal } from './HelpModal';
+import { InventoryModal } from './InventoryModal';
 
 export const GameUI: React.FC = () => {
   return (
@@ -23,6 +25,8 @@ export const GameUI: React.FC = () => {
         <KeybindHint />
       </div>
       <GameOverModal />
+      <HelpModal />
+      <InventoryModal />
     </>
   );
 };
